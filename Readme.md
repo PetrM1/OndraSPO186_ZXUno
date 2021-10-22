@@ -77,7 +77,7 @@ Advantage of this solution is that screen resolution can be programmatically cha
 
 * You will need [Ondra Link](https://sites.google.com/site/ondraspo186/rs232/ondralink) SW on PC and some games. Here is direct [link](https://sites.google.com/site/ondraspo186/download/9-2-rom-a-utility/OndraLink32.zip?attredirects=0&d=1). Games can be found [here](https://sites.google.com/site/ondraspo186/download/9-1-hry).
 * You also need a cable with UART to USB converter. **Please mind FPGA uses 3.3V logic and your converter MUST support it. Otherwise you will destroy your ZX Uno!**
-* TxD from UART converter needs to be connected to IO_L37N_3 FPGA pin - this is Joy2 UP (pin1 on joystick 2 connector) on ZX Uno 2M and EXT26 (connector J11 pin8 - fourth pin from the left) and GNDs of course :). [Here](/pictures/ZXUno-UART.jpg) is picture how you should wire your ZX Uno to UART-to-USB converter. And [here](/pictures/ZXUno2M-UART.jpg) is the same for ZX Uno 2M.
+* TxD from UART converter needs to be connected to IO_L37N_3 FPGA pin - this is Joy2 UP (pin1 on joystick 2 connector) on ZX Uno 2M and EXT26 (connector J11 pin8 - fifth pin from the left) and GNDs of course :). [Here](/pictures/ZXUno-UART.jpg) is picture how you should wire your ZX Uno to UART-to-USB converter. And [here](/pictures/ZXUno2M-UART.jpg) is the same for ZX Uno 2M.
 * Run Ondra Link SW on your PC, select appropriate USB to UART converter and load game you want to transfer to Ondra
 * On Ondra (ZX Uno) type # (Alt + e) and press Enter. Screen turns black and Ondra is waiting for UART data.
 * On Ondra Link SW click on double arrow up. This loads turbo (increase transfer speed), then it plays a sound and continue loading game itself
