@@ -6,7 +6,8 @@ And this is its implementation in Verilog for ZX Uno and ZX Uno 2M FPGA.
 ## Short demo video of this core on youtube
 
 https://youtu.be/B2MRWTKYOYU  
-This video shows core on  [MISTEer](https://github.com/MiSTer-devel/Main_MiSTer/wiki) however it works same on ZX Uno and ZX Uno 2M.
+
+This video shows core on  [MISTer](https://github.com/MiSTer-devel/Main_MiSTer/wiki) however it works same on ZX Uno and ZX Uno 2M.
 
 ## Specifications
 
@@ -42,7 +43,7 @@ Here is mapping Ondra keys to PC Keyboard. Please note modifier keys are in diff
 ## Graphics generation (Video circuit)
 
 Ondra has a very unique video circuit. Video address counter is made with 2x КР580ВИ53 programmable interval timers - Russian clone of [i8253](https://en.wikipedia.org/wiki/Intel_8253). In fact although Ondra was designed and manufactured in Czechoslovakia most of ICs were "Made in [USSR](https://en.wikipedia.org/wiki/Soviet_Union)".
-Timers are used for generating [VSync and HSync](https://en.wikipedia.org/wiki/Analog_television#Vertical_synchronization) start pulses as well as for generaing video address itself. Cheap, simple but not easy :)
+Timers are used for generating [VSync and HSync](https://en.wikipedia.org/wiki/Analog_television#Vertical_synchronization) start pulses as well as for generating video address itself. Cheap, simple but not easy :)
 Advantage of this solution is that screen resolution can be programmatically changed. Disadvantage is that CPU has to be while screen is being drawn. CPU works on about 18-20% only.
 
 
@@ -52,8 +53,8 @@ Advantage of this solution is that screen resolution can be programmatically cha
 * 64 kB RAM
 * Keyboard
 * Sound
-* tape load via ADC MISTer connector (line in)
-* load via serial port (MISTer user port)
+* tape load via line in
+* load via "serial port"
 
 ## What is missing
 
@@ -76,6 +77,7 @@ Advantage of this solution is that screen resolution can be programmatically cha
 
 * You will need [Ondra Link](https://sites.google.com/site/ondraspo186/rs232/ondralink) SW on PC and some games. Here is direct [link](https://sites.google.com/site/ondraspo186/download/9-2-rom-a-utility/OndraLink32.zip?attredirects=0&d=1). Games can be found [here](https://sites.google.com/site/ondraspo186/download/9-1-hry).
 * You also need a cable with UART to USB converter. **Please mind FPGA uses 3.3V logic and your converter MUST support it. Otherwise you will destroy your ZX Uno!**
+* TxD from UART converter needs to be connected to IO_L37N_3 FPGA pin - this is Joy2 UP (pin1 on joystick 2 connector) on ZX Uno 2M and EXT26 (connector J11 pin8 - fourth pin from the left) and GNDs of course :). [Here](/pictures/ZXUno-UART.jpg) is picture how you should wire your ZX Uno to UART-to-USB converter. And [here](/pictures/ZXUno2M-UART.jpg) is the same for ZX Uno 2M.
 * Run Ondra Link SW on your PC, select appropriate USB to UART converter and load game you want to transfer to Ondra
 * On Ondra (ZX Uno) type # (Alt + e) and press Enter. Screen turns black and Ondra is waiting for UART data.
 * On Ondra Link SW click on double arrow up. This loads turbo (increase transfer speed), then it plays a sound and continue loading game itself
@@ -86,7 +88,6 @@ Advantage of this solution is that screen resolution can be programmatically cha
 - Otherwise you will destroy your ZX Uno!
 - I've warned you and you do it at your own risk!
 ```
-[Here](/pictures/ZXUno-UART.jpg) is simple picture how you should wire your ZX Uno to UART-to-USB converter. And [here](/pictures/ZXUno2M-UART.jpg) is the same for ZX Uno 2M.
 
 ### Loading games via audio line in
 
@@ -104,6 +105,6 @@ Advantage of this solution is that screen resolution can be programmatically cha
 * https://github.com/omikron88/jondra
 * https://www.clous.cz/ondra-spo-186/
 
-This core is also available for [MISTEer](https://github.com/MiSTer-devel/Main_MiSTer/wiki) on https://github.com/MiSTer-devel/OndraSPO186_MiSTer
+This core is also available for [MISTer](https://github.com/MiSTer-devel/Main_MiSTer/wiki) on https://github.com/MiSTer-devel/OndraSPO186_MiSTer
 
 Some of them are only in Czech or Slovak, but Google translator is your friend :)
