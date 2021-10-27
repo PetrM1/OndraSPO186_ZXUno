@@ -9,7 +9,7 @@ module Ondra_SPO186_core (
 	output reg VSync,	
 	output wire HBlank,
 	output wire VBlank,
-	output wire pixel,
+	output reg pixel,
 	output wire beeper,
 	input wire [15:0] joy,			
 	output reg LED_GREEN,
@@ -32,7 +32,7 @@ module Ondra_SPO186_core (
 reg [2:0] clk_div;
 always @(posedge clk_sys)
 	clk_div <= clk_div + 1'b1;
-
+	
 wire [15:0] A;
 wire  [7:0] D;
 wire  [7:0] DOut;
@@ -171,14 +171,16 @@ k580vi53 V_Counter_8253 (
 reg [7:0] pixel_Data;
 wire pixel_Data_Load = ~(BUSAK_n | ~(clk_div[0] & clk_div[1] & clk_div[2]));
 wire CLR_pixel_Data = (Vcnt_out0 | Hcnt_out2);
-assign pixel = pixel_Data[7] & ~CLR_pixel_Data;
 
 always @(posedge clk_sys)
 begin
 	if (pixel_Data_Load)
 		pixel_Data <= data_VRAM_out;
-	else 	
+	else if (CLR_pixel_Data)
+		pixel_Data <= 8'h00;
+	else 			
 		pixel_Data <= { pixel_Data[6:0], 1'b0 };
+	pixel <= pixel_Data[7] & ~CLR_pixel_Data;
 end
   
   
@@ -192,7 +194,6 @@ reg VSync_last;
  
 always @(posedge clk_sys)
 begin
-
 	if (~videoOff_n | ~VSync)
 		BUSRQ_n <= 1;		
 	else if ((Vcnt_out2) & (Vcnt_out2 == ~Vcnt_out2_last)) // UP
@@ -203,18 +204,19 @@ begin
 	Vcnt_out0_last <= Vcnt_out0;
 	Vcnt_out2_last <= Vcnt_out2;		
 end
-
-  
+ 
 
 // generator HSync   D35A, R59, C37
-// Perioda 64.0417us = 16kHz, log1 58,3750us, log0 zbytek 5,6667us (= 176kHz)  - log 0 vyvolána pos edge HOut1
+// Perioda 64.0417us = 16kHz, log0 4,4us - log 0 vyvolána pos edge HOut1
 reg [17:0] HPulse;
+reg Hcnt_out1_last;
 
-always @(negedge Hcnt_out1 or posedge clk_50M)
+always @(posedge clk_sys)
 begin
-	if (~Hcnt_out1)
-	begin
-		HPulse <= 50_000_000 / 176_469;
+	Hcnt_out1_last <= Hcnt_out1;
+	if (~Hcnt_out1_last & Hcnt_out1)
+	begin		
+		HPulse <= 30; // = 4.40 us
 		HSync <= 1'b0;
 	end
 	else if (HPulse == 18'h0)
@@ -225,15 +227,17 @@ end
 
 
 // generator VSync D35B, R58, C39
-// perioda 19.9757083ms = 50Hz, log1 19.8383333ms, log0 0,137375ms = 137.375us (= 7.3kHz) 
+// perioda 19.9757083ms = 50Hz, log0 120.4 us
 // log 0 vyvolana pos edge V OUT 1
 reg [17:0] VPulse;
+reg Vcnt_out1_last; 
 
-always @(negedge Vcnt_out1 or posedge clk_50M)
+always @(posedge clk_sys)
 begin
-	if (~Vcnt_out1)
+	Vcnt_out1_last <= Vcnt_out1;
+	if (~Vcnt_out1_last & Vcnt_out1)
 	begin
-		VPulse <= 50_000_000 / 7_279;
+		VPulse <= 960; // = 120.4 us
 		VSync <= 1'b0;
 	end
 	else if (VPulse == 18'h0)
@@ -344,13 +348,8 @@ wire [12:0] EPROM_Addr = { 1'b0, ROM1_en, A[10:0] };
 // if 2x2764 EPROM chip used
 //wire [12:0] EPROM_Addr = { ROM1_en, A[11:0] };
 
- 
-
-//wire [7:0] data_EPROM_out;
-
 ondra_test_rom myEPROM0(.CLK(clk_sys), .ENA(1'b1), .ADDR(EPROM_Addr), .DATA(data_EPROM0_out));
 OndraViLi_v27  myEPROM1(.CLK(clk_sys), .ENA(1'b1), .ADDR(EPROM_Addr), .DATA(data_EPROM1_out));
-
 
 wire [7:0] data_EPROM0_out;
 wire [7:0] data_EPROM1_out;
@@ -359,42 +358,6 @@ wire [7:0] data_EPROM3_out;
 wire [7:0] data_EPROM_out = ROMVersion == 2'b00 ? data_EPROM0_out : 
                             ROMVersion == 2'b01 ? data_EPROM1_out : 
                             ROMVersion == 2'b10 ? data_EPROM2_out : data_EPROM3_out;
- 
-//dpram #(.ADDRWIDTH(13), .MEM_INIT_FILE("./ROM/OndraViLi_v27.mif")) myEPPROM0
-//(
-//	.clock(clk_sys),
-//	.address_a(EPROM_Addr),	
-//	.wren_a(0),
-//	.q_a(data_EPROM0_out)
-//);
-//
-//
-//dpram #(.ADDRWIDTH(13), .MEM_INIT_FILE("./ROM/OndraViLi.mif")) myEPPROM1
-//(
-//	.clock(clk_sys),
-//	.address_a(EPROM_Addr),	
-//	.wren_a(0),
-//	.q_a(data_EPROM1_out)
-//);
-//
-//
-//dpram #(.ADDRWIDTH(13), .MEM_INIT_FILE("./ROM/Ondra_TESLA_V5.mif")) myEPPROM2
-//(
-//	.clock(clk_sys),
-//	.address_a(EPROM_Addr),	
-//	.wren_a(0),
-//	.q_a(data_EPROM2_out)
-//);
-//
-//
-//dpram #(.ADDRWIDTH(13), .MEM_INIT_FILE("./ROM/Ondra_test.mif")) myEPPROM3
-//(
-//	.clock(clk_sys),
-//	.address_a(EPROM_Addr),	
-//	.wren_a(0),
-//	.q_a(data_EPROM3_out)
-//);
-
 
 		
 //-------------------------------------- RAM ----------------------------------------------------------------------
@@ -408,20 +371,6 @@ assign SRAM_WE	= ~(RAM_en & ~mem_wr_n);
 wire [7:0] data_RAM_out = (RAM_en & mem_wr_n) ? SRAM_DATA : 8'h00;
 wire [7:0] data_VRAM_out = BUSAK_n ? 8'h00 : SRAM_DATA;
 
-
-//dpram #(.ADDRWIDTH(16)) myRam
-//(
-//	.clock(clk_sys),
-//	.address_a(RAM_Addr),
-//	.data_a(DOut),
-//	.wren_a(RAM_en & ~mem_wr_n), 
-//	.q_a(data_RAM_out),	
-//
-//	
-//	.address_b({2'b11, A_VideoRAM[13:0]}),	
-//	.wren_b(0),
-//	.q_b(data_VRAM_out)
-//);
 
 // VideoRAM organization
 // ---------------------------

@@ -61,8 +61,8 @@ module Ondra_SPO186(
 
 assign SD_nCS = 1'b1;
 assign { SD_SCK, SD_MOSI} = 0;
-assign O_NTSC = 1'b1;
-assign O_PAL = 1'b0;
+assign O_NTSC = 1'b0;
+assign O_PAL = 1'b1;
 
  
 wire clk_sys;
@@ -76,15 +76,11 @@ wire VBlank;
 wire pixel;
 wire beeper;
 wire LED_GREEN;
-
 wire LED_YELLOW;
 wire LED_RED;
 wire RESERVA_IN;	//rxd
-
 wire RESERVA_OUT; // txd		
-
 wire MGF_IN;		// cassette line in (from ADC)
-
 	
 	
 wire [7:0] VGA_R;
@@ -93,16 +89,12 @@ wire [7:0] VGA_B;
 
 assign AUDIO1_LEFT = beeper;
 assign AUDIO1_RIGHT = beeper;		
-
 assign VGA_VSYNC = scandoublerEnabled ? SD_VSYNC : 1;
-assign VGA_HSYNC = scandoublerEnabled ? SD_HSYNC : ~(HSync ^ VSync);
-
+assign VGA_HSYNC = scandoublerEnabled ? SD_HSYNC : (HSync ^ ~VSync);
 assign VGA_BLUE  = (scandoublerEnabled ? SD_PIXEL : pixel) ? 3'b111 : 3'b000;
 assign VGA_GREEN = (scandoublerEnabled ? SD_PIXEL : pixel) ? 3'b111 : 3'b000;
 assign VGA_RED   = (scandoublerEnabled ? SD_PIXEL : pixel) ? 3'b111 : 3'b000;
-
-
-assign LED = ~LED_RED;
+assign LED = LED_RED;
 
 wire [7:0] scancode;
 wire released;
@@ -137,7 +129,7 @@ begin
 	if (reset_clk == 3'b011)
 		scandblr_reg <= SRAM_DATA;
 	if (~(reset_clk == 3'b000))
-		reset_clk <= reset_clk - 3'b001;
+		reset_clk <= reset_clk - 3'b001;	
 end	
 
 	
@@ -171,7 +163,7 @@ mist_scandoubler  myscandoubler
 //    .g_out(VGA_GREEN),
 //    .b_out(VGA_BLUE),
     .hs_out(SD_HSYNC),
-    .vs_out(SD_VSYNC)
+    .vs_out(SD_VSYNC)	 
 );	
 
 wire SD_HSYNC;
@@ -201,11 +193,8 @@ Ondra_SPO186_core myOndra(
 	.RELAY(LED_RED),
 
 	.RESERVA_IN(RXD), //rxd
-
 	.RESERVA_OUT(RESERVA_OUT), // txd		
-
 	.MGF_IN(EAR),				// cassette line in (from ADC)
-
 	.ROMVersion(ROMVersion),
 	
 	.SRAM_DATA(SRAM_DATA),
