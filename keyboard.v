@@ -7,10 +7,11 @@ module keyboard (
 		input        clk,
 	
 		input [10:0] ps2_key,			
-		input [3:0] column,
+		input  [3:0] column,
 		output [4:0] row,
-		output reg ESC,
-		output reg F8
+      output [4:0] kbd_soundvolume,
+		output kbd_nmi,
+		output reg kbd_hardreset
 );
 	
 wire pressed = ps2_key[9];
@@ -33,26 +34,29 @@ assign ctrl = ctrlR & ctrlL;
 reg altR;
 reg altL;
 wire alt;
-
 assign alt = altR & altL;
- 
-
-assign row = { keys[column][0],
-					keys[column][2],
-					keys[column][4],
-					keys[column][1],
-					keys[column][3] };
-	
-
+assign row = { keys[column][0], keys[column][2], keys[column][4], keys[column][1], keys[column][3] };
 reg old_stb;
 reg old_reset = 0;
+reg [7:0] soundvolume;
+reg mute;
+reg [8:0] kbd_nmi_clk = 8'h00;
+
+assign kbd_nmi = (kbd_nmi_clk == 8'h00);
+assign kbd_soundvolume = (mute) ? 4'h0 : soundvolume;
+
+initial begin   
+   kbd_hardreset <= 1;
+end
 
 always @(posedge clk) 
 begin
-	    
 	old_stb <= ps2_key[10];
 	old_reset <= reset;
 	
+   if (~(kbd_nmi_clk == 8'h00))
+      kbd_nmi_clk <= kbd_nmi_clk - 8'd1;
+      
 	if(~old_reset & reset)
 	begin
 		keys[00] <= 5'b11111;
@@ -78,8 +82,10 @@ begin
 		ctrlL <= 1;
 		altR <= 1;
 		altL <= 1;
-		ESC <= 0;
-		F8 <= 0;
+		kbd_nmi_clk <= 8'h00;
+		kbd_hardreset <= 1;
+      soundvolume <= 8'h8;
+      mute <= 4'h0;
 	end
 		
 	keys[02][0] <= alt; // (key 31) CHARS-SPECIAL CHARS TOGGLE
@@ -111,8 +117,17 @@ begin
 				//8'h58 : if (~pressed) capsLock <= ~capsLock ; //  toggle Caps Lock
 						
 				8'h14 : ctrlR <= ~pressed; // Ctrl (right)
-				8'h11 : altR <= ~pressed;  // Alt (right)					
-					
+				8'h11 : altR <= ~pressed;  // Alt (right)	
+
+            8'h20 : if (pressed)       // (multimedia) mute pressed 
+                        mute <= ~mute;
+            8'h2E : if (pressed & ~(soundvolume == 4'h0)) // (multimedia) volume down pressed 		
+                        soundvolume <= soundvolume - 4'd1;
+            8'h30 : if (pressed & ~(soundvolume == 4'hF)) // (multimedia) volume up pressed 		
+                        soundvolume <= soundvolume + 4'd1;                        
+
+				8'h71 : if (~(ctrl | alt) | ~kbd_nmi) // CTRL + ALT + Delete
+					kbd_nmi_clk <= 8'h0F;
 			endcase	
 		end
 		else
@@ -121,10 +136,10 @@ begin
 			case(code)       
 				8'h14 : ctrlL <= ~pressed; // Ctrl (left)
 				8'h11 : altL <= ~pressed;  // Alt (left)	
-				8'h08 : F8 <= pressed;  // F8
-				8'h76 : ESC <= pressed;  // ESC
-									
-			
+								
+				8'h66 : if (~(ctrl | alt) | ~kbd_hardreset) // CTRL + ALT + Backspace
+					kbd_hardreset <= ~pressed;	
+					
 				// column 0 = pin 1
 				8'h15 : keys[00][0] <= ~pressed; // (key 01) Q 1 !
 				8'h24 : keys[00][1] <= ~pressed; // (key 03) E 3 #

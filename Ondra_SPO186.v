@@ -30,15 +30,16 @@ module Ondra_SPO186(
 		output wire [2:0] VGA_GREEN,
 		output wire [2:0] VGA_RED,
 		
-		input wire JOYSTICK1_1, // up
-		input wire JOYSTICK1_2, // down
-		input wire JOYSTICK1_3, // left
-		input wire JOYSTICK1_4, // right
-		input wire JOYSTICK1_6, // fire
+		input wire JOY1_UP,
+		input wire JOY1_DOWN,
+		input wire JOY1_LEFT,
+		input wire JOY1_RIGHT,
+		input wire JOY1_FIRE,
+
 		input wire RXD,
 
-		output wire AUDIO1_LEFT,
-		output wire AUDIO1_RIGHT,
+		output wire AUDIO_LEFT,
+		output wire AUDIO_RIGHT,
 
 		input wire SD_MISO,
 		output wire SD_SCK,
@@ -46,7 +47,7 @@ module Ondra_SPO186(
 		output wire SD_nCS,
 
 		inout wire [7:0] SRAM_DATA,
-		output wire [18:0] SRAM_ADDR,
+		output wire [20:0] SRAM_ADDR,
 		output wire SRAM_WE,
 
       output wire O_NTSC,
@@ -87,8 +88,19 @@ wire [7:0] VGA_R;
 wire [7:0] VGA_G;
 wire [7:0] VGA_B;
 
-assign AUDIO1_LEFT = beeper;
-assign AUDIO1_RIGHT = beeper;		
+//------------------------------------------------------------
+//-- Sigma Delta DAC
+//------------------------------------------------------------
+wire [4:0] AUDIO;
+assign AUDIO_RIGHT = AUDIO_LEFT;
+dac #(.msbi_g(4)) dac(
+		.clk_i(clk_sys),
+		.resetn(reset_n),
+		.dac_i(AUDIO),
+		.dac_o(AUDIO_LEFT)
+);
+
+		
 assign VGA_VSYNC = scandoublerEnabled ? SD_VSYNC : 1;
 assign VGA_HSYNC = scandoublerEnabled ? SD_HSYNC : (HSync ^ ~VSync);
 assign VGA_BLUE  = (scandoublerEnabled ? SD_PIXEL : pixel) ? 3'b111 : 3'b000;
@@ -107,7 +119,7 @@ wire locked;
 reg [1:0] ROMVersion = 2'b01;	
 
 
-wire [18:0] SRAM_ADDR_O;
+wire [20:0] SRAM_ADDR_O;
 wire SRAM_WE_O;
 reg [2:0] reset_clk = 3'b111;
 // Initial video output settings
@@ -131,7 +143,6 @@ begin
 	if (~(reset_clk == 3'b000))
 		reset_clk <= reset_clk - 3'b001;	
 end	
-
 	
 pll myClk( .CLK_50M(CLK_IN), .CLK_8M(clk_sys), .CLK_VGA(clk_vga), .RESET(1'b0), .LOCKED(locked));
 
@@ -181,13 +192,9 @@ Ondra_SPO186_core myOndra(
 	.HBlank(HBlank),
 	.VBlank(VBlank),	
 	.pixel(pixel),
-	.beeper(beeper),	
-	.joy({10'd0, 
-				~JOYSTICK1_6, // fire
-				~JOYSTICK1_1, // up
-				~JOYSTICK1_2, // down
-				~JOYSTICK1_3, // left
-				~JOYSTICK1_4}),// right	 
+	.beeper(beeper),
+   .AUDIO(AUDIO),
+	.joy({10'd0, ~JOY1_FIRE, ~JOY1_UP, ~JOY1_DOWN, ~JOY1_LEFT, ~JOY1_RIGHT}),
 	.LED_GREEN(LED_GREEN),
 	.LED_YELLOW(LED_YELLOW),
 	.RELAY(LED_RED),

@@ -11,6 +11,7 @@ module Ondra_SPO186_core (
 	output wire VBlank,
 	output reg pixel,
 	output wire beeper,
+   output wire [4:0] AUDIO,
 	input wire [15:0] joy,			
 	output reg LED_GREEN,
 	output reg LED_YELLOW,	
@@ -21,7 +22,7 @@ module Ondra_SPO186_core (
 	input wire [1:0] ROMVersion,
 
 	inout wire [7:0] SRAM_DATA,
-	output wire [18:0] SRAM_ADDR,
+	output wire [20:0] SRAM_ADDR,
 	output wire SRAM_WE
 );
 
@@ -49,7 +50,7 @@ wire io_wr_n = IORQ_n | WR_n;
 wire io_rd_n = IORQ_n | RD_n;
 wire mem_rd_n = MREQ_n | RD_n;
 wire mem_wr_n = MREQ_n | WR_n;
-wire NMI_n = 1;
+wire NMI_n = kbd_nmi;
 wire INT_n = Vcnt_out1;
 
 
@@ -116,7 +117,6 @@ wire ROM0_en = BUSAK_n & ROM_en & (A[15:13] == 3'b000);
 wire ROM1_en = BUSAK_n & ROM_en & (A[15:13] == 3'b001);
 wire KBD_Port_en = BUSAK_n & port_en & (A[15:13] == 3'b111); 	//  keyboard + JOY + MGF_IN + rxd PORT_n 
 wire RAM_en = ~BUSAK_n | (~ROM0_en & ~ROM1_en & ~KBD_Port_en); // read RAM if ROMx and Port is not enabled
-wire [1:0] A_RAM_HI = ~BUSAK_n ? 2'b11 : A[15:14];
 
 
 //----------------------------------------- VIDEO ------------------------------------------------
@@ -165,8 +165,7 @@ k580vi53 V_Counter_8253 (
 	.gate( { 1'b1, Vcnt_out2, Vcnt_out2 } ),
 	.out( { Vcnt_out2, Vcnt_out1, Vcnt_out0 } )
 );
-  
-  
+ 
 
 reg [7:0] pixel_Data;
 wire pixel_Data_Load = ~(BUSAK_n | ~(clk_div[0] & clk_div[1] & clk_div[2]));
@@ -261,7 +260,7 @@ reg [2:0] SND;
 
 
 //---------------------  Joystick ---------------------------------
-// 							    Trigger, Down,   Up,      Left,    Right
+//                          Trigger,   Down,    Up,      Left,    Right
 wire [4:0] row_Joystick = { ~joy[4], ~joy[2], ~joy[3], ~joy[1], ~joy[0] };
 wire clk_LED_SND_RELE = (io_wr_n | A[0]); // portA0
 wire [4:0] row_KJ = (A[3:0] == 4'b1001) ? row_Joystick : row_Keyboard;
@@ -269,13 +268,24 @@ wire [4:0] row_KJ = (A[3:0] == 4'b1001) ? row_Joystick : row_Keyboard;
  
 //--------------------- keyboard  ---------------------------------
 wire [4:0] row_Keyboard;
+wire kbd_nmi;
+wire kbd_hardreset;
+wire [7:0] soundvolume;
  
 keyboard keyboard (
-	.reset(reset), 
-	.clk(clk_sys), 
-	.ps2_key(ps2_key), 
-	.row(row_Keyboard), 
-	.column(A[3:0])
+   .reset(reset), 
+   .clk(clk_sys), 
+   .ps2_key(ps2_key), 
+   .row(row_Keyboard), 
+   .column(A[3:0]),
+   .kbd_soundvolume(soundvolume),
+   .kbd_nmi(kbd_nmi),
+   .kbd_hardreset(kbd_hardreset)
+);
+
+multiboot return_to_main_core (
+	.clk_icap(clk_sys),
+	.mrst_n(kbd_hardreset)
 );
 
 
@@ -336,7 +346,7 @@ assign beeper = (SND == 3'b000) ? 1'b0 :
 					 (SND == 3'b110) ? freq_1_615 :
 					 (SND == 3'b111) ? freq_1_753 : 1'b0;
 
-
+assign AUDIO = beeper ? soundvolume : 4'h0;
  
 //-------------------------------------- EPROM ----------------------------------------------------------------------
 // 2x2764 (2x8kb) or 2x2716 (2x2kb)
@@ -365,7 +375,7 @@ wire [7:0] data_EPROM_out = ROMVersion == 2'b00 ? data_EPROM0_out :
 
 
 assign SRAM_DATA = (RAM_en & ~mem_wr_n) ? DOut : 8'hzz;
-assign SRAM_ADDR = BUSAK_n ? { A_RAM_HI, A[13:0] } : {2'b11, A_VideoRAM[13:0]} ;
+assign SRAM_ADDR = BUSAK_n ? { 5'd0, A[15:0] } : { 5'd0, 2'b11, A_VideoRAM[13:0] } ;
 assign SRAM_WE	= ~(RAM_en & ~mem_wr_n);
 
 wire [7:0] data_RAM_out = (RAM_en & mem_wr_n) ? SRAM_DATA : 8'h00;
@@ -383,6 +393,7 @@ wire [7:0] data_VRAM_out = BUSAK_n ? 8'h00 : SRAM_DATA;
 // FF81 FE81 FD81   ...   D881
 // FF01 FE01 FD01   ...   D801
 // FF80 FE80 FD80   ...   D880
+
 
 	
 endmodule // Ondra_SPO186_core
