@@ -5,18 +5,20 @@ And this is its implementation in Verilog for ZX Uno and ZX Uno 2M FPGA.
 
 ## Short demo video of this core on youtube
 
-https://youtu.be/B2MRWTKYOYU  
+https://youtu.be/YnFbf-u1D80 
 
-This video shows core on  [MISTer](https://github.com/MiSTer-devel/Main_MiSTer/wiki) however it works same on ZX Uno and ZX Uno 2M.
+
+Older video with load via serial port - not supported anymore  
+https://youtu.be/B2MRWTKYOYU
 
 ## Specifications
 
-* CPU [U880](https://en.wikipedia.org/wiki/U880) @4MHz - [GDR](https://en.wikipedia.org/wiki/East_Germany) clone of [Z80](https://en.wikipedia.org/wiki/Z80) 
+* CPU [U880](https://en.wikipedia.org/wiki/U880) @4MHz - [GDR](https://en.wikipedia.org/wiki/East_Germany) clone of [Z80](https://en.wikipedia.org/wiki/Z80)
 * 64 kB RAM (10kB used by video RAM)
 * 4 - 16 kB ROM (EPROM) 
 * TV output 
 * up to 320x255 pixels B/W (40 columns x 24 rows)
-* relay for cassette player control - often used for "sound (click) signalling"
+* relay for cassette player control - often used for "sound (click) signaling"
 * 7 frequency sound generator (only 7 different given frequencies)
 * one 20 pins connector for joystick, centronics parallel port (8-bit data out, Strobe_n out, Busy in), UART (Reserva In = RXD, Reserva Out = TXD)
 * cassette player connector for SW load and save at 2400[Bd](https://en.wikipedia.org/wiki/Baud)
@@ -31,9 +33,21 @@ Shift      -> Shift
 Symbols    -> Alt  
 Ctrl       -> Ctrl  
 Numbers    -> Tab  
-ČS         -> Caps Lock (used for Czech diacritics)  
+ČS         -> Caps Lock (used for Czech diacritics)
 
 Each modifier key needs to be pressed (and hold) before pressing character key. 
+
+
+**ZX Uno core keys:**
+
+CTRL + ALT + Delete      -> Hard reset ZX Uno  
+CTRL + ALT + BackSpace   -> Ondra core NMI reset  
+F5                       -> Ondra core cold reset  
+F7                       -> switch AD724 PAL/NTSC  
+  this is related to composite output only. I'm struggling to generate PAL video without red artifacts and NTSC looks as it suppose to, but is unstable. And I'm sure original HW didn't generate NTSC. This will be removed once I solve PAL issue.   
+F8                       -> enforce/disable scan doubler  
+F9                       -> switch ROM (ViLi -> Tesla -> Test ROM)  
+
 Here is mapping Ondra keys to PC Keyboard. Please note modifier keys are in different colors as invoked characters on other keys.
 
 ![Ondra Keyboard mapping](/pictures/OndraKeyboardMapping_small.jpg)
@@ -43,7 +57,7 @@ Here is mapping Ondra keys to PC Keyboard. Please note modifier keys are in diff
 ## Graphics generation (Video circuit)
 
 Ondra has a very unique video circuit. Video address counter is made with 2x КР580ВИ53 programmable interval timers - Russian clone of [i8253](https://en.wikipedia.org/wiki/Intel_8253). In fact although Ondra was designed and manufactured in Czechoslovakia most of ICs were "Made in [USSR](https://en.wikipedia.org/wiki/Soviet_Union)".
-Timers are used for generating [VSync and HSync](https://en.wikipedia.org/wiki/Analog_television#Vertical_synchronization) start pulses as well as for generating video address itself. Cheap, simple but not easy :)
+Timers are used for generating [VSync and HSync](https://en.wikipedia.org/wiki/Analog_television#Vertical_synchronization) start pulses as well as for generaing video address itself. Cheap, simple but not easy :)
 Advantage of this solution is that screen resolution can be programmatically changed. Disadvantage is that CPU has to be while screen is being drawn. CPU works on about 18-20% only.
 
 
@@ -52,13 +66,14 @@ Advantage of this solution is that screen resolution can be programmatically cha
 * CPU
 * 64 kB RAM
 * Keyboard
-* Sound
-* tape load via line in
-* load via "serial port"
+* Sound (7 different sound - not forming a scale - as on real HW)
+* tape load via ADC MISTer connector (line in)
+* [Ondra SD](https://sites.google.com/site/ondraspo186/4-rom-card-sd) - modern HW for easier SW load from SD Card
 
 ## What is missing
 
-* [Ondra SD](https://sites.google.com/site/ondraspo186/4-rom-card-sd) - modern HW for easier SW load and save from/to SD Card
+* [Ondra SD](https://sites.google.com/site/ondraspo186/4-rom-card-sd) - RAW R/W support (required for [CP/M](https://sites.google.com/site/ondraspo186/8-ondra-cp-m))
+* [OndraMELODIK](https://youtu.be/u5RyUs0VGdg) - NEW HW for Ondra bringing better sound (still in development) - please give author a thumb up :)
 
 ## How to install core
 
@@ -70,31 +85,32 @@ Advantage of this solution is that screen resolution can be programmatically cha
 
 ### Options
  
+### Loading games via [Ondra SD](https://sites.google.com/site/ondraspo186/4-rom-card-sd) 
 
-### Loading games via "serial port"
+* No external HW required - Ondra SD is implemented inside FPGA
 
-**This is interim solution before [Ondra SD](https://sites.google.com/site/ondraspo186/4-rom-card-sd) will be implemented to the core.**  
+#### Preparing for use
+* Create "**Ondra**" folder on your SD Card
+* Copy there "**__LOADER.BIN**" and "**_ONDRADM.BIN**" from [OndraSD.zip](https://sites.google.com/site/ondraspo186/download/9-3-hardware/OndraSD.zip?attredirects=0&d=1)
+* Copy there some game too :) Here is good source [https://sites.google.com/site/ondraspo186/download](https://sites.google.com/site/ondraspo186/download)  
+Your SD Card should look like this
 
-* You will need [Ondra Link](https://sites.google.com/site/ondraspo186/rs232/ondralink) SW on PC and some games. Here is direct [link](https://sites.google.com/site/ondraspo186/download/9-2-rom-a-utility/OndraLink32.zip?attredirects=0&d=1). Games can be found [here](https://sites.google.com/site/ondraspo186/download/9-1-hry).
-* You also need a cable with UART to USB converter. **Please mind FPGA uses 3.3V logic and your converter MUST support it. Otherwise you will destroy your ZX Uno!**
-* TxD from UART converter needs to be connected to IO_L37N_3 FPGA pin - this is Joy2 UP (pin1 on joystick 2 connector) on ZX Uno 2M and EXT26 (connector J11 pin8 - fifth pin from the left) and GNDs of course :). [Here](/pictures/ZXUno-UART.jpg) is picture how you should wire your ZX Uno to UART-to-USB converter. And [here](/pictures/ZXUno2M-UART.jpg) is the same for ZX Uno 2M.
-* Run Ondra Link SW on your PC, select appropriate USB to UART converter and load game you want to transfer to Ondra
-* On Ondra (ZX Uno) type # (Alt + e) and press Enter. Screen turns black and Ondra is waiting for UART data.
-* On Ondra Link SW click on double arrow up. This loads turbo (increase transfer speed), then it plays a sound and continue loading game itself
-* Enjoy the Ondra SPO 186 and the game :)
+![SD Card content](/pictures/SDCard.jpg)
 
-```diff
-- Once again: Please mind ZX Uno FPGA uses 3.3V logic and your converter MUST support it. 
-- Otherwise you will destroy your ZX Uno!
-- I've warned you and you do it at your own risk!
-```
+#### Using [Ondra SD](https://sites.google.com/site/ondraspo186/4-rom-card-sd) 
+* Use **ViLi ROM** (Ondra greets you with message "Zdraví Vás ONDRA")
+* type # (ALT + E) and press Enter - if Ondra SD doesn§'t react press enter again/for longer time or reset Ondra
+* Ondra File Manager appears in few seconds after several beeps
+* Choose file or folder and press Enter to change dir or load a file
+* Shift change directory to root of SD card
+
 
 ### Loading games via audio line in
 
-* connect your audio source (cassette player, mobile, ...) to ZX Uno line in
-* press any key. Screen turn black and will flicker time to time. You can see text .KÓD 1. This is ok. Ondra turn off screen to gain more time for CPU and text .KÓD x will change as game will be loading to Ondra (x will raise from 1).
-* start playing WAV file
-* Enjoy the Ondra SPO 186 and the game :)
+* Connect your audio source (cassette player, mobile, ...) to ZX Uno line in
+* Press any key. Screen turn black and will flicker time to time. You can see flicking text **.KÓD 1**. This is ok. Ondra turn off screen to gain more time for CPU and text .KÓD x will change as game will be loading to Ondra (x will raise from 1).
+* Start playing WAV file
+* Waitn and then enjoy the Ondra SPO 186 and the game :)
 
 ## For more info see
 
@@ -104,7 +120,5 @@ Advantage of this solution is that screen resolution can be programmatically cha
 * https://sites.google.com/site/ondra186/home 
 * https://github.com/omikron88/jondra
 * https://www.clous.cz/ondra-spo-186/
-
-This core is also available for [MISTer](https://github.com/MiSTer-devel/Main_MiSTer/wiki) on https://github.com/MiSTer-devel/OndraSPO186_MiSTer
 
 Some of them are only in Czech or Slovak, but Google translator is your friend :)
