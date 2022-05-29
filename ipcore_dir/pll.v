@@ -55,8 +55,10 @@
 // "Output    Output      Phase     Duty      Pk-to-Pk        Phase"
 // "Clock    Freq (MHz) (degrees) Cycle (%) Jitter (ps)  Error (ps)"
 //----------------------------------------------------------------------------
-// CLK_OUT1_____8.000______0.000______50.0______388.483____251.827
-// CLK_OUT2____16.000______0.000______50.0______338.141____251.827
+// CLK_OUT1_____8.036______0.000______50.0______392.710____240.171
+// CLK_OUT2____16.071______0.000______50.0______342.104____240.171
+// CLK_OUT3____21.429______0.000______50.0______322.758____240.171
+// CLK_OUT4_____3.571______0.000______50.0______459.795____240.171
 //
 //----------------------------------------------------------------------------
 // "Input Clock   Freq (MHz)    Input Jitter (UI)"
@@ -65,13 +67,15 @@
 
 `timescale 1ps/1ps
 
-(* CORE_GENERATION_INFO = "pll,clk_wiz_v3_6,{component_name=pll,use_phase_alignment=true,use_min_o_jitter=false,use_max_i_jitter=false,use_dyn_phase_shift=false,use_inclk_switchover=false,use_dyn_reconfig=false,feedback_source=FDBK_AUTO,primtype_sel=PLL_BASE,num_out_clk=2,clkin1_period=20.0,clkin2_period=20.0,use_power_down=false,use_reset=true,use_locked=true,use_inclk_stopped=false,use_status=false,use_freeze=false,use_clk_valid=false,feedback_type=SINGLE,clock_mgr_type=AUTO,manual_override=false}" *)
+(* CORE_GENERATION_INFO = "pll,clk_wiz_v3_6,{component_name=pll,use_phase_alignment=true,use_min_o_jitter=false,use_max_i_jitter=false,use_dyn_phase_shift=false,use_inclk_switchover=false,use_dyn_reconfig=false,feedback_source=FDBK_AUTO,primtype_sel=PLL_BASE,num_out_clk=4,clkin1_period=20.000,clkin2_period=20.000,use_power_down=false,use_reset=true,use_locked=true,use_inclk_stopped=false,use_status=false,use_freeze=false,use_clk_valid=false,feedback_type=SINGLE,clock_mgr_type=AUTO,manual_override=false}" *)
 module pll
  (// Clock in ports
   input         CLK_50M,
   // Clock out ports
   output        CLK_8M,
   output        CLK_VGA,
+  output        CLK_SN,
+  output        CLK_SNen,
   // Status and control signals
   input         RESET,
   output        LOCKED
@@ -91,8 +95,6 @@ module pll
   wire        drdy_unused;
   wire        clkfbout;
   wire        clkfbout_buf;
-  wire        clkout2_unused;
-  wire        clkout3_unused;
   wire        clkout4_unused;
   wire        clkout5_unused;
 
@@ -101,23 +103,29 @@ module pll
     .CLK_FEEDBACK           ("CLKFBOUT"),
     .COMPENSATION           ("SYSTEM_SYNCHRONOUS"),
     .DIVCLK_DIVIDE          (1),
-    .CLKFBOUT_MULT          (8),
+    .CLKFBOUT_MULT          (9),
     .CLKFBOUT_PHASE         (0.000),
-    .CLKOUT0_DIVIDE         (50),
+    .CLKOUT0_DIVIDE         (56),
     .CLKOUT0_PHASE          (0.000),
     .CLKOUT0_DUTY_CYCLE     (0.500),
-    .CLKOUT1_DIVIDE         (25),
+    .CLKOUT1_DIVIDE         (28),
     .CLKOUT1_PHASE          (0.000),
     .CLKOUT1_DUTY_CYCLE     (0.500),
-    .CLKIN_PERIOD           (20.0),
+    .CLKOUT2_DIVIDE         (21),
+    .CLKOUT2_PHASE          (0.000),
+    .CLKOUT2_DUTY_CYCLE     (0.500),
+    .CLKOUT3_DIVIDE         (126),
+    .CLKOUT3_PHASE          (0.000),
+    .CLKOUT3_DUTY_CYCLE     (0.500),
+    .CLKIN_PERIOD           (20.000),
     .REF_JITTER             (0.010))
   pll_base_inst
     // Output clocks
    (.CLKFBOUT              (clkfbout),
     .CLKOUT0               (clkout0),
     .CLKOUT1               (clkout1),
-    .CLKOUT2               (clkout2_unused),
-    .CLKOUT3               (clkout3_unused),
+    .CLKOUT2               (clkout2),
+    .CLKOUT3               (clkout3),
     .CLKOUT4               (clkout4_unused),
     .CLKOUT5               (clkout5_unused),
     // Status and control signals
@@ -142,6 +150,14 @@ module pll
   BUFG clkout2_buf
    (.O   (CLK_VGA),
     .I   (clkout1));
+
+  BUFG clkout3_buf
+   (.O   (CLK_SN),
+    .I   (clkout2));
+
+  BUFG clkout4_buf
+   (.O   (CLK_SNen),
+    .I   (clkout3));
 
 
 

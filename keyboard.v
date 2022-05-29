@@ -86,6 +86,7 @@ begin
 		kbd_hardreset <= 1;
       soundvolume <= 8'h8;
       mute <= 4'h0;
+      kbd_nmi_clk <= 8'hFF;
 	end
 		
 	keys[02][0] <= alt; // (key 31) CHARS-SPECIAL CHARS TOGGLE
@@ -119,11 +120,11 @@ begin
 				8'h14 : ctrlR <= ~pressed; // Ctrl (right)
 				8'h11 : altR <= ~pressed;  // Alt (right)	
 
-            8'h20 : if (pressed)       // (multimedia) mute pressed 
+            8'h23 : if (pressed)       // (multimedia) mute pressed 
                         mute <= ~mute;
-            8'h2E : if (pressed & ~(soundvolume == 4'h0)) // (multimedia) volume down pressed 		
+            8'h21 : if (pressed & ~(soundvolume == 4'h0)) // (multimedia) volume down pressed 		
                         soundvolume <= soundvolume - 4'd1;
-            8'h30 : if (pressed & ~(soundvolume == 4'hF)) // (multimedia) volume up pressed 		
+            8'h32 : if (pressed & ~(soundvolume == 4'hF)) // (multimedia) volume up pressed 		
                         soundvolume <= soundvolume + 4'd1;                        
 
 				8'h71 : if (~(ctrl | alt) | ~kbd_nmi) // CTRL + ALT + Delete

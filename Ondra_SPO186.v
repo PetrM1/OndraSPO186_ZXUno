@@ -29,14 +29,12 @@ module Ondra_SPO186(
 		output wire [2:0] VGA_BLUE,
 		output wire [2:0] VGA_GREEN,
 		output wire [2:0] VGA_RED,
-		
+
 		input wire JOY1_UP,
 		input wire JOY1_DOWN,
 		input wire JOY1_LEFT,
 		input wire JOY1_RIGHT,
 		input wire JOY1_FIRE,
-
-		input wire RXD,
 
 		output wire AUDIO_LEFT,
 		output wire AUDIO_RIGHT,
@@ -59,15 +57,16 @@ module Ondra_SPO186(
 		input wire SERVICE,
 		input wire EAR
     );
-
-assign SD_nCS = 1'b1;
-assign { SD_SCK, SD_MOSI} = 0;
-assign O_NTSC = 1'b0;
-assign O_PAL = 1'b1;
-
  
+assign O_NTSC = ~PAL;// 1'b0;
+assign O_PAL = PAL; //1'b1;
+
+reg PAL = 1'b1; 
 wire clk_sys;
+wire clk_sn;
+wire clk_snen;
 wire reset_n;
+wire NMI_reset_n; // from core from keyboard;
  
 wire clk_vga; // 16MHz
 wire HSync;
@@ -79,72 +78,129 @@ wire beeper;
 wire LED_GREEN;
 wire LED_YELLOW;
 wire LED_RED;
-wire RESERVA_IN;	//rxd
-wire RESERVA_OUT; // txd		
 wire MGF_IN;		// cassette line in (from ADC)
-	
+wire [7:0] Parallel_Data_OUT;	
+wire NON_STB;
 	
 wire [7:0] VGA_R;
 wire [7:0] VGA_G;
 wire [7:0] VGA_B;
-
+ 
 //------------------------------------------------------------
 //-- Sigma Delta DAC
 //------------------------------------------------------------
-wire [4:0] AUDIO;
 assign AUDIO_RIGHT = AUDIO_LEFT;
 dac #(.msbi_g(4)) dac(
 		.clk_i(clk_sys),
 		.resetn(reset_n),
-		.dac_i(AUDIO),
+		.dac_i({4{beeper}}),
 		.dac_o(AUDIO_LEFT)
 );
 
-		
+//------------------------------------------------------------
+//-- Ondra SD
+//------------------------------------------------------------
+wire OndraSD_signal_led;
+wire OndraSD_rxd;
+wire OndraSD_txd;
+
+OndraSD #(.sysclk_frequency(50000000)) OndraSD // 50MHz
+(
+   .clk(CLK_IN),
+   .reset_in(reset_n && NMI_reset_n),
+   .enter_key(kbd_enter),
+   .signal_led(OndraSD_signal_led),
+   // SPI signals
+   .spi_miso(SD_MISO),
+   .spi_mosi(SD_MOSI),
+   .spi_clk(SD_SCK),
+   .spi_cs(SD_nCS),
+   // UART
+   .rxd(OndraSD_rxd),
+   .txd(OndraSD_txd)
+); 
+ 
+assign LED = ~SD_nCS;
+
+//------------------------------------------------------------
+//-- Keyboard controls
+//------------------------------------------------------------
+reg kbd_reset = 0;
+reg kbd_ROM_change = 0;
+reg kbd_scandoublerOverride = 0;
+reg old_stb;    
+reg kbd_enter = 0;
+
+always @(posedge clk_sys) 
+begin
+	old_stb <= kb_stb;
+   if ((old_stb != kb_stb) & (~extended))
+	begin		
+      case(scancode)
+         8'h03: kbd_reset <= ~released;         // F5 = RESET
+         8'h83: if (~released)                  // F7 = NTSC/PAL
+            PAL <= ~PAL;
+         8'h0A: if (~released)                  // F8 = scandoubler Override
+            kbd_scandoublerOverride <= ~kbd_scandoublerOverride;            
+         8'h01: kbd_ROM_change <= ~released;    // F9 =  change ROM & reset!
+         8'h5a : kbd_enter <= ~released;        // ENTER         
+      endcase	
+   end
+end	
+      
+      
 assign VGA_VSYNC = scandoublerEnabled ? SD_VSYNC : 1;
 assign VGA_HSYNC = scandoublerEnabled ? SD_HSYNC : (HSync ^ ~VSync);
 assign VGA_BLUE  = (scandoublerEnabled ? SD_PIXEL : pixel) ? 3'b111 : 3'b000;
 assign VGA_GREEN = (scandoublerEnabled ? SD_PIXEL : pixel) ? 3'b111 : 3'b000;
 assign VGA_RED   = (scandoublerEnabled ? SD_PIXEL : pixel) ? 3'b111 : 3'b000;
-assign LED = LED_RED;
 
 wire [7:0] scancode;
 wire released;
 wire extended;
 wire kb_interrupt;
 reg kb_stb;
- 
-
 wire locked;	
-reg [1:0] ROMVersion = 2'b01;	
-
+reg [1:0] ROMVersion = 2'b00;	
+always @(posedge kbd_ROM_change)
+begin
+   if (ROMVersion == 2'b10)
+      ROMVersion <= 2'b00;
+   else
+      ROMVersion <= ROMVersion + 2'b01;
+end
 
 wire [20:0] SRAM_ADDR_O;
 wire SRAM_WE_O;
-reg [2:0] reset_clk = 3'b111;
+reg [8:0] reset_clk = 8'hFF;
 // Initial video output settings
 reg [7:0] scandblr_reg; // same layout as in the Spectrum core, SCANDBLR_CTRL
+reg scandblr_1stRead = 1'b1;
 	 // scandblr_reg[0] = VGA
 	 // VGA: to 1 to enable scandoubler. The scandoubler's output is the same as normal RGB output, 
 	 // but doubling the horizontal delay frequency. Set to 0 to use 15kHz RGB / composite video output. 
-wire scandoublerEnabled = ~scandblr_reg[0];
+wire scandoublerEnabled = ~scandblr_reg[0] ^ kbd_scandoublerOverride;
 	 
-always @(negedge SERVICE)
-	ROMVersion[0] <= ~ROMVersion[0];
-
-assign reset_n = (reset_clk == 3'b000);
+assign reset_n = (reset_clk == 8'h00);
 // 21'h008FD5;  // magic place where the scandoubler settings have been stored
 assign SRAM_ADDR = reset_n ? SRAM_ADDR_O : 21'h008FD5;
 assign SRAM_WE = reset_n ? SRAM_WE_O : 1'b0;
 always @(posedge CLK_IN)
 begin
-	if (reset_clk == 3'b011)
+	if ((reset_clk == 8'b011) & scandblr_1stRead)
+   begin
 		scandblr_reg <= SRAM_DATA;
-	if (~(reset_clk == 3'b000))
-		reset_clk <= reset_clk - 3'b001;	
+      scandblr_1stRead <= 1'b0;
+   end;
+   if (kbd_reset | kbd_ROM_change)
+      reset_clk <= 8'hFF;
+	else if (~(reset_clk == 8'h00))
+		reset_clk <= reset_clk - 8'h1;	
 end	
 	
-pll myClk( .CLK_50M(CLK_IN), .CLK_8M(clk_sys), .CLK_VGA(clk_vga), .RESET(1'b0), .LOCKED(locked));
+pll myClk(.CLK_50M(CLK_IN), 
+          .CLK_8M(clk_sys), .CLK_VGA(clk_vga), .CLK_SN(clk_sn), .CLK_SNen(clk_snen), 
+          .RESET(1'b0), .LOCKED(locked));
 
 ps2_port kbd_port(.clk(clk_sys), .enable_rcv(1'b1), .kb_or_mouse(1'b0), 
 	.ps2clk_ext(PS2_CLK1), .ps2data_ext(PS2_DAT1),
@@ -186,24 +242,24 @@ Ondra_SPO186_core myOndra(
 	.clk_50M(CLK_IN), // 50MHz main clock
 	.clk_sys(clk_sys),  // 8MHz clock 	 	
 	.reset(~reset_n),
+   .NMI_n(NMI_reset_n),
 	.ps2_key({kb_stb, ~released, extended, scancode}),
 	.HSync(HSync),
 	.VSync(VSync),
 	.HBlank(HBlank),
 	.VBlank(VBlank),	
 	.pixel(pixel),
-	.beeper(beeper),
-   .AUDIO(AUDIO),
+	.beeper(beeper),   
 	.joy({10'd0, ~JOY1_FIRE, ~JOY1_UP, ~JOY1_DOWN, ~JOY1_LEFT, ~JOY1_RIGHT}),
 	.LED_GREEN(LED_GREEN),
 	.LED_YELLOW(LED_YELLOW),
 	.RELAY(LED_RED),
-
-	.RESERVA_IN(RXD), //rxd
-	.RESERVA_OUT(RESERVA_OUT), // txd		
-	.MGF_IN(EAR),				// cassette line in (from ADC)
+	.RESERVA_IN(OndraSD_txd),  //rxd
+	.RESERVA_OUT(OndraSD_rxd), // txd
+	.MGF_IN(EAR),				   // cassette line in (from ADC)
 	.ROMVersion(ROMVersion),
-	
+   .Parallel_Data_OUT(Parallel_Data_OUT),	
+   .NON_STB(NON_STB),
 	.SRAM_DATA(SRAM_DATA),
 	.SRAM_ADDR(SRAM_ADDR_O),
 	.SRAM_WE(SRAM_WE_O)

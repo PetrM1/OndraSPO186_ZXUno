@@ -2,16 +2,16 @@
 module Ondra_SPO186_core (
 
 	input wire clk_50M, 			// 50MHz main clock
-	input wire clk_sys,  			// 8MHz system clock 
+	input wire clk_sys,  		// 8MHz system clock 
 	input wire reset,
+   output wire NMI_n,         // NMI reeset (from keyboard)
 	input wire [10:0] ps2_key,	
 	output reg HSync,
 	output reg VSync,	
 	output wire HBlank,
 	output wire VBlank,
-	output reg pixel,
-	output wire beeper,
-   output wire [4:0] AUDIO,
+	output wire pixel,
+	output wire beeper,   
 	input wire [15:0] joy,			
 	output reg LED_GREEN,
 	output reg LED_YELLOW,	
@@ -20,19 +20,20 @@ module Ondra_SPO186_core (
 	output reg RESERVA_OUT, // txd		
 	input wire MGF_IN, 		// cassette line in (from ADC)
 	input wire [1:0] ROMVersion,
+   output reg [7:0] Parallel_Data_OUT,
+   output reg NON_STB,
 
 	inout wire [7:0] SRAM_DATA,
 	output wire [20:0] SRAM_ADDR,
 	output wire SRAM_WE
 );
 
-
 //---------------------------------------------- CPU ---------------------------------------------------------
 //
 
 reg [2:0] clk_div;
 always @(posedge clk_sys)
-	clk_div <= clk_div + 1'b1;
+	clk_div <= clk_div + 1'b1;  
 	
 wire [15:0] A;
 wire  [7:0] D;
@@ -50,7 +51,7 @@ wire io_wr_n = IORQ_n | WR_n;
 wire io_rd_n = IORQ_n | RD_n;
 wire mem_rd_n = MREQ_n | RD_n;
 wire mem_wr_n = MREQ_n | WR_n;
-wire NMI_n = kbd_nmi;
+assign NMI_n = kbd_nmi;
 wire INT_n = Vcnt_out1;
 
 
@@ -170,18 +171,17 @@ k580vi53 V_Counter_8253 (
 reg [7:0] pixel_Data;
 wire pixel_Data_Load = ~(BUSAK_n | ~(clk_div[0] & clk_div[1] & clk_div[2]));
 wire CLR_pixel_Data = (Vcnt_out0 | Hcnt_out2);
+assign pixel = pixel_Data[7] & ~CLR_pixel_Data;  
 
 always @(posedge clk_sys)
 begin
-	if (pixel_Data_Load)
-		pixel_Data <= data_VRAM_out;
-	else if (CLR_pixel_Data)
+   if (CLR_pixel_Data)
 		pixel_Data <= 8'h00;
+   else if (pixel_Data_Load)
+		pixel_Data <= data_VRAM_out;
 	else 			
 		pixel_Data <= { pixel_Data[6:0], 1'b0 };
-	pixel <= pixel_Data[7] & ~CLR_pixel_Data;
 end
-  
   
 assign HBlank = Hcnt_out2;
 assign VBlank = Vcnt_out0;
@@ -249,10 +249,8 @@ end
 //---------------------------------- KEYBOARD + JOY + SERIAL & PARALLEL PORT ---------------------------------------------	
 //
 //
-
-
 (* keep *) wire BUSY;
-reg NON_STB;
+//reg NON_STB;
 // wire RESERVA_IN;  //rxd
 // reg RESERVA_OUT; // txd
 reg [2:0] SND;
@@ -270,7 +268,7 @@ wire [4:0] row_KJ = (A[3:0] == 4'b1001) ? row_Joystick : row_Keyboard;
 wire [4:0] row_Keyboard;
 wire kbd_nmi;
 wire kbd_hardreset;
-wire [7:0] soundvolume;
+(* keep = "true" *) wire [7:0] soundvolume;
  
 keyboard keyboard (
    .reset(reset), 
@@ -291,7 +289,7 @@ multiboot return_to_main_core (
 
 //--------------------- parallel data out -------------------------
 wire clk_Parallel_port = (io_wr_n | A[1]); // port A1
-reg [7:0] Parallel_Data_OUT;
+//reg [7:0] Parallel_Data_OUT;
 always @(posedge clk_Parallel_port)
 	Parallel_Data_OUT <= DOut;
 
@@ -345,8 +343,6 @@ assign beeper = (SND == 3'b000) ? 1'b0 :
 					 (SND == 3'b101) ? freq_1_508 :
 					 (SND == 3'b110) ? freq_1_615 :
 					 (SND == 3'b111) ? freq_1_753 : 1'b0;
-
-assign AUDIO = beeper ? soundvolume : 4'h0;
  
 //-------------------------------------- EPROM ----------------------------------------------------------------------
 // 2x2764 (2x8kb) or 2x2716 (2x2kb)
@@ -358,8 +354,9 @@ wire [12:0] EPROM_Addr = { 1'b0, ROM1_en, A[10:0] };
 // if 2x2764 EPROM chip used
 //wire [12:0] EPROM_Addr = { ROM1_en, A[11:0] };
 
-ondra_test_rom myEPROM0(.CLK(clk_sys), .ENA(1'b1), .ADDR(EPROM_Addr), .DATA(data_EPROM0_out));
-OndraViLi_v27  myEPROM1(.CLK(clk_sys), .ENA(1'b1), .ADDR(EPROM_Addr), .DATA(data_EPROM1_out));
+OndraViLi_v27  myEPROM0(.CLK(clk_sys), .ENA(1'b1), .ADDR(EPROM_Addr), .DATA(data_EPROM0_out));
+Ondra_TESLA_V5 myEPROM1(.CLK(clk_sys), .ENA(1'b1), .ADDR(EPROM_Addr), .DATA(data_EPROM1_out));
+ondra_test_rom myEPROM2(.CLK(clk_sys), .ENA(1'b1), .ADDR(EPROM_Addr), .DATA(data_EPROM2_out));
 
 wire [7:0] data_EPROM0_out;
 wire [7:0] data_EPROM1_out;
