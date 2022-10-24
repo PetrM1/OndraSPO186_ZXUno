@@ -79,22 +79,45 @@ wire LED_GREEN;
 wire LED_YELLOW;
 wire LED_RED;
 wire MGF_IN;		// cassette line in (from ADC)
-wire [7:0] Parallel_Data_OUT;	
-wire NON_STB;
 	
 wire [7:0] VGA_R;
 wire [7:0] VGA_G;
 wire [7:0] VGA_B;
  
 //------------------------------------------------------------
+//-- Ondra Melodik (sn76489)
+//------------------------------------------------------------
+wire [7:0] Parallel_Data_OUT;
+wire NON_STB;
+wire [13:0] mix_audio_o;
+reg  ondra_melodik_clk_enable;
+
+always @(negedge reset_n or negedge NON_STB)
+begin
+  if (~reset_n)
+    ondra_melodik_clk_enable <= 0;
+  else
+    ondra_melodik_clk_enable <= 1;
+end
+
+sn76489_audio #(.MIN_PERIOD_CNT_G(17)) sn76489_audio
+(  .clk_i(clk_sys),                                     //System clock
+   .en_clk_psg_i(clk_snen & ondra_melodik_clk_enable),  //PSG clock enable
+   .ce_n_i(0),                                          //chip enable, active low
+   .wr_n_i(NON_STB),                                    // write enable, active low
+   .data_i(Parallel_Data_OUT),
+   .mix_audio_o(mix_audio_o)
+);
+
+//------------------------------------------------------------
 //-- Sigma Delta DAC
 //------------------------------------------------------------
 assign AUDIO_RIGHT = AUDIO_LEFT;
-dac #(.msbi_g(4)) dac(
-		.clk_i(clk_sys),
-		.resetn(reset_n),
-		.dac_i({4{beeper}}),
-		.dac_o(AUDIO_LEFT)
+dac #(.msbi_g(13)) dac(
+   .clk_i(clk_sys),
+	.resetn(reset_n),
+	.dac_i(mix_audio_o | {11{beeper}}),
+	.dac_o(AUDIO_LEFT)
 );
 
 //------------------------------------------------------------
